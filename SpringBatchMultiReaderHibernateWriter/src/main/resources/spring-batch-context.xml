@@ -1,0 +1,136 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:batch="http://www.springframework.org/schema/batch" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/batch
+		http://www.springframework.org/schema/batch/spring-batch-3.0.xsd
+		http://www.springframework.org/schema/beans 
+		http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+		http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+
+	<context:annotation-config />
+
+	<import resource="classpath:context-model.xml" />
+
+	<!-- JobRepository and JobLauncher are configuration/setup classes -->
+	<bean id="jobRepository"
+		class="org.springframework.batch.core.repository.support.MapJobRepositoryFactoryBean" />
+
+	<bean id="jobLauncher"
+		class="org.springframework.batch.core.launch.support.SimpleJobLauncher">
+		<property name="jobRepository" ref="jobRepository" />
+	</bean>
+
+	<bean id="multiResourceItemReader"
+		class="org.springframework.batch.item.file.MultiResourceItemReader">
+		<property name="resources" value="classpath:csv/ExamResult*.txt" />
+		<property name="delegate" ref="flatFileItemReader" />
+	</bean>
+
+	<!-- <bean id="flatFileItemReader" class="org.springframework.batch.item.file.FlatFileItemReader"> 
+		<property name="resource" ref="myFileReference" /> <property name="lineMapper"> 
+		<bean class="org.springframework.batch.item.file.mapping.PatternMatchingCompositeLineMapper"> 
+		<property name="tokenizers"> <map> <entry key="HEADER|*" value-ref="headerLineTokenizer" 
+		/> <entry key="TRAILER|*" value-ref="footerLineTokenizer" /> <entry key="*" 
+		value-ref="bodyLineTokenizer" /> </map> </property> <property name="fieldSetMappers"> 
+		<map> <entry key="HEADER|*" value-ref="headerMapper" /> <entry key="TRAILER|*" 
+		value-ref="footerMapper" /> <entry key="*" value-ref="bodyMapper" /> </map> 
+		</property> </bean> </property> </bean> <bean id="headerLineTokenizer" class="org.springframework.batch.item.file.transform.DelimitedLineTokenizer"> 
+		<property name="delimiter" value="|" /> </bean> <bean id="footerLineTokenizer" 
+		class="org.springframework.batch.item.file.transform.DelimitedLineTokenizer"> 
+		<property name="delimiter" value="|" /> </bean> <bean id="bodyLineTokenizer" 
+		class="org.springframework.batch.item.file.transform.DelimitedLineTokenizer"> 
+		<property name="delimiter" value="|" /> </bean> <bean id="headerMapper" class="org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper"> 
+		<property name="prototypeBeanName" value="LarsUidHeaderResultFieldSetMapper" 
+		/> <property name="distanceLimit" value="100" /> </bean> <bean id="footerMapper" 
+		class="org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper"> 
+		<property name="prototypeBeanName" value="LarsUidFooterResultFieldSetMapper" 
+		/> <property name="distanceLimit" value="100" /> </bean> <bean id="HeadFooter" 
+		class="au.com.optus.mcas.sdp.bizservice.larsuid.HeadFooter"/> <bean id="LarsUidHeaderResultFieldSetMapper" 
+		class="au.com.optus.mcas.sdp.bizservice.larsuid.LarsUidHeaderResultFieldSetMapper"/> 
+		<bean id="LarsUidFooterResultFieldSetMapper" class="au.com.optus.mcas.sdp.bizservice.larsuid.LarsUidFooterResultFieldSetMapper"/> 
+		<bean id="bodyMapper" class="au.com.optus.mcas.sdp.bizservice.larsuid.LarsUidResultFieldSetMapper" 
+		/> -->
+
+
+	<!-- ItemReader reads a complete line one by one from input file -->
+	<!-- ItemReader reads a complete line one by one from input file -->
+    <bean id="flatFileItemReader" class="org.springframework.batch.item.file.FlatFileItemReader"  scope="step">
+        <property name="lineMapper">
+            <bean class="org.springframework.batch.item.file.mapping.DefaultLineMapper">
+                <property name="fieldSetMapper">
+                    <!-- Mapper which maps each individual items in a record to properties in POJO -->
+                    <bean class="au.com.optus.mcas.sdp.bizservice.larsuid.LarsUidResultFieldSetMapper" />
+                </property>
+                <property name="lineTokenizer">
+                    <!-- A tokenizer class to be used when items in input record are separated by specific characters -->
+                    <bean class="org.springframework.batch.item.file.transform.DelimitedLineTokenizer">
+                        <property name="delimiter" value="|" />
+                    </bean>
+                </property>
+            </bean>
+        </property>
+    </bean>
+
+	<!-- ItemWriter which writes data to database -->
+	<!-- <bean id="databaseItemWriter" class="org.springframework.batch.item.database.HibernateItemWriter"> 
+		<property name="sessionFactory" ref="sessionFactory" /> </bean> -->
+
+	<bean id="databaseItemWriter"
+		class="org.springframework.batch.item.database.JdbcBatchItemWriter">
+		<property name="dataSource" ref="dataSource" />
+		<property name="sql">
+			<value>
+            <![CDATA[        
+            	insert into LARS_UID(SVC_NUM,SVC_NUM_NEW,UNQU_ID,RECORD_TYPE,REL_FLAG,EFF_DT,EXTRACT_DT,PARTY_ID) 
+			values (:svcNum, :svcNumNew, :unquId, :recordType,  :relFlag, :effDate, :extractDate, :partyId)
+            ]]>
+			</value>
+		</property>
+		<!-- It will take care matching between object property and sql name parameter -->
+		<property name="itemSqlParameterSourceProvider">
+			<bean
+				class="org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider" />
+		</property>
+	</bean>
+
+	<!-- Optional ItemProcessor to perform business logic/filtering on the input 
+		records -->
+	<bean id="itemProcessor"
+		class="au.com.optus.mcas.sdp.bizservice.larsuid.LarsUidItemProcessor" />
+
+	<!-- Optional JobExecutionListener to perform business logic before and 
+		after the job -->
+	<bean id="jobListener"
+		class="au.com.optus.mcas.sdp.bizservice.larsuid.LarsResultJobListener" />
+
+	<!-- Optional ItemProcessor to perform business logic/filtering on the input 
+		records -->
+	<!-- <bean id="ctlProcessor" class="com.websystique.springbatch.CtlItemProcessor" 
+		/> <bean id="ctlItemReader" class="org.springframework.batch.item.file.MultiResourceItemReader"> 
+		<property name="resources" value="classpath:csv/*.ctl" /> <property name="delegate" 
+		ref="flatFileItemReader" /> </bean> -->
+
+	<!-- Actual Job -->
+	<batch:job id="examResultJob">
+		<!-- <batch:step id="step1"> <batch:tasklet transaction-manager="transactionManager"> 
+			<batch:chunk reader="ctlItemReader" writer="ctldatabaseItemWriter" processor="ctlProcessor" 
+			commit-interval="10" /> </batch:tasklet> </batch:step> -->
+		<!-- parent="step1" -->
+		<batch:step id="step1">
+			<batch:tasklet transaction-manager="transactionManager">
+				<batch:chunk reader="multiResourceItemReader" writer="databaseItemWriter"
+					processor="itemProcessor" commit-interval="10" />
+			</batch:tasklet>
+		</batch:step>
+		<batch:listeners>
+			<batch:listener ref="jobListener" />
+		</batch:listeners>
+	</batch:job>
+
+	<bean id="number"
+		class="au.com.optus.mcas.sdp.bizservice.larsuid.util.SecureKeyProvider"></bean>
+
+</beans>			

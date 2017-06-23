@@ -1,0 +1,5 @@
+HEADER|MP_20150622_000050_SQ_01.CTL
+SQLEAD|ExamResult-Year2001.txt
+SQLEAD|ExamResult-Year2002.txt
+SQLEAD|ExamResult-Year2003.txt
+TRAILER|3
